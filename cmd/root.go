@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kamaln7/mdmw/mdmw"
+	"github.com/kamaln7/mdmw/mdmw/storage/filesystem"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -34,6 +36,7 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "mdmw",
 	Short: "A drop-in markdown middleware",
+	Run:   runMdmw,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -68,4 +71,15 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+}
+
+func runMdmw(cmd *cobra.Command, args []string) {
+	fsDriver := &filesystem.Driver{Path: "./files"}
+
+	server := &mdmw.Server{
+		ListenAddress: "localhost:4000",
+		StorageDriver: fsDriver,
+	}
+
+	server.Listen()
 }
