@@ -25,6 +25,7 @@ import (
 	"os"
 
 	"github.com/kamaln7/mdmw/mdmw"
+	"github.com/kamaln7/mdmw/mdmw/storage"
 	"github.com/kamaln7/mdmw/mdmw/storage/filesystem"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -39,6 +40,13 @@ var rootCmd = &cobra.Command{
 	Run:   runMdmw,
 }
 
+// args
+var (
+	argListenAddress  string
+	argStorageDriver  string
+	argFilesystemPath string
+)
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -52,6 +60,11 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./.mdmw.yaml)")
+
+	rootCmd.Flags().StringVarP(&argListenAddress, "listen.address", "", "localhost:4000", "address to listen on (required)")
+	rootCmd.Flags().StringVarP(&argStorageDriver, "storage.driver", "", "filesystem", "address to listen on (required)")
+	rootCmd.Flags().StringVarP(&argFilesystemPath, "filesystem.path", "", "./files", "path to markdown files (required)")
+
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -74,11 +87,16 @@ func initConfig() {
 }
 
 func runMdmw(cmd *cobra.Command, args []string) {
-	fsDriver := &filesystem.Driver{Path: "./files"}
+	var storageDriver storage.Driver
+
+	switch argStorageDriver {
+	case "filesystem":
+		storageDriver = &filesystem.Driver{Path: argFilesystemPath}
+	}
 
 	server := &mdmw.Server{
-		ListenAddress: "localhost:4000",
-		StorageDriver: fsDriver,
+		ListenAddress: argListenAddress,
+		StorageDriver: storageDriver,
 	}
 
 	server.Listen()
