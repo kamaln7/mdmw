@@ -40,11 +40,17 @@ var rootCmd = &cobra.Command{
 	Run:   runMdmw,
 }
 
+const (
+	argListenAddress  = "listen.address"
+	argStorageDriver  = "storage.driver"
+	argFilesystemPath = "filesystem.path"
+)
+
 // args
 var (
-	argListenAddress  string
-	argStorageDriver  string
-	argFilesystemPath string
+	listenAddress  string
+	storageDriver  string
+	filesystemPath string
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -61,10 +67,14 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./.mdmw.yaml)")
 
-	rootCmd.Flags().StringVarP(&argListenAddress, "listen.address", "", "localhost:4000", "address to listen on (required)")
-	rootCmd.Flags().StringVarP(&argStorageDriver, "storage.driver", "", "filesystem", "address to listen on (required)")
-	rootCmd.Flags().StringVarP(&argFilesystemPath, "filesystem.path", "", "./files", "path to markdown files (required)")
+	rootCmd.Flags().StringVarP(&listenAddress, argListenAddress, "", "localhost:4000", "address to listen on")
+	viper.BindPFlag(argListenAddress, rootCmd.Flags().Lookup(argListenAddress))
 
+	rootCmd.Flags().StringVarP(&storageDriver, argStorageDriver, "", "filesystem", "storage driver to use")
+	viper.BindPFlag(argStorageDriver, rootCmd.Flags().Lookup(argStorageDriver))
+
+	rootCmd.Flags().StringVarP(&filesystemPath, argFilesystemPath, "", "./files", "path to markdown files")
+	viper.BindPFlag(argFilesystemPath, rootCmd.Flags().Lookup(argFilesystemPath))
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -82,21 +92,25 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		fmt.Println("Using config file: ", viper.ConfigFileUsed())
 	}
 }
 
 func runMdmw(cmd *cobra.Command, args []string) {
-	var storageDriver storage.Driver
+	var sd storage.Driver
 
-	switch argStorageDriver {
+	switch storageDriver {
 	case "filesystem":
-		storageDriver = &filesystem.Driver{Path: argFilesystemPath}
+		sd = &filesystem.Driver{Path: filesystemPath}
+		break
+	default:
+		fmt.Fprintf(os.Stderr, "storage driver %s does not exist\n", storageDriver)
+		os.Exit(1)
 	}
 
 	server := &mdmw.Server{
-		ListenAddress: argListenAddress,
-		StorageDriver: storageDriver,
+		ListenAddress: listenAddress,
+		StorageDriver: sd,
 	}
 
 	server.Listen()
