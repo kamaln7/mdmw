@@ -27,10 +27,12 @@ func (s *Server) Listen() {
 	fmt.Printf("mdmw listening on %s\n", s.ListenAddress)
 	if err := http.ListenAndServe(s.ListenAddress, s.mux); err != nil {
 		fmt.Fprintf(os.Stderr, "couldn't start HTTP server: %v\n", err)
+		os.Exit(1)
 	}
 }
 
 func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
 	var (
 		path = r.RequestURI
 		raw  = false
@@ -46,7 +48,6 @@ func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == storage.ErrNotFound {
 			w.WriteHeader(http.StatusNotFound)
-			w.Header().Set("Content-Type", "text/markdown")
 			w.Write([]byte(HTMLNotFound))
 			return
 		}
@@ -57,7 +58,11 @@ func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !raw {
+	if raw {
+		// raw markdown
+		w.Header().Set("Content-Type", "text/markdown")
+	} else {
+		// render markdown as html
 		output = blackfriday.Run(output)
 
 		// poor man's templating
@@ -65,6 +70,5 @@ func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 		html = strings.Replace(html, "$title", filepath.Base(path), -1)
 		output = []byte(html)
 	}
-	w.Header().Set("Content-Type", "text/html")
 	w.Write(output)
 }

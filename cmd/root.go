@@ -128,8 +128,6 @@ func initConfig() {
 func runMdmw(cmd *cobra.Command, args []string) {
 	var sd storage.Driver
 
-	fmt.Println(viper.GetString(argStorageDriver), config.Storage)
-
 	switch config.Storage {
 	case "filesystem":
 		sd = &filesystem.Driver{Config: config.Filesystem}
