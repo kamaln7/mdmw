@@ -8,16 +8,21 @@ import (
 	"github.com/kamaln7/mdmw/mdmw/storage"
 )
 
+// Config contains the filesystem config
+type Config struct {
+	Path string
+}
+
 // Driver defines a filesystem-based storage driver
 type Driver struct {
-	Path string
+	Config Config
 }
 
 // ensure interface implementation
 var _ storage.Driver = new(Driver)
 
 func (d *Driver) Read(path string) ([]byte, error) {
-	filePath := filepath.Join(d.Path, path)
+	filePath := filepath.Join(d.Config.Path, path)
 
 	content, err := ioutil.ReadFile(filePath)
 

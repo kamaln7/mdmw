@@ -23,10 +23,12 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/kamaln7/mdmw/mdmw"
 	"github.com/kamaln7/mdmw/mdmw/storage"
 	"github.com/kamaln7/mdmw/mdmw/storage/filesystem"
+	"github.com/kamaln7/mdmw/mdmw/storage/spaces"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -41,17 +43,28 @@ var rootCmd = &cobra.Command{
 }
 
 const (
-	argListenAddress  = "listen.address"
-	argStorageDriver  = "storage.driver"
+	argListenAddress = "listenaddress"
+
+	argStorageDriver = "storage"
+
 	argFilesystemPath = "filesystem.path"
+
+	argSpacesAccessKey = "spaces.auth.access"
+	argSpacesSecretKey = "spaces.auth.secret"
+	argSpacesSpace     = "spaces.space"
+	argSpacesRegion    = "spaces.region"
+	argSpacesPath      = "spaces.path"
 )
 
-// args
-var (
-	listenAddress  string
-	storageDriver  string
-	filesystemPath string
-)
+// Config contains the mdmw config
+type Config struct {
+	ListenAddress string
+	Storage       string
+	Filesystem    filesystem.Config
+	Spaces        spaces.Config
+}
+
+var config Config
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
@@ -62,19 +75,28 @@ func Execute() {
 	}
 }
 
+func addStringFlag(p *string, name, shorthand, value, usage string) {
+	rootCmd.Flags().StringVarP(p, name, shorthand, value, usage)
+	viper.BindPFlag(name, rootCmd.Flags().Lookup(name))
+}
+
 func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./.mdmw.yaml)")
 
-	rootCmd.Flags().StringVarP(&listenAddress, argListenAddress, "", "localhost:4000", "address to listen on")
-	viper.BindPFlag(argListenAddress, rootCmd.Flags().Lookup(argListenAddress))
+	addStringFlag(&config.ListenAddress, argListenAddress, "", "localhost:4000", "address to listen on")
+	addStringFlag(&config.Storage, argStorageDriver, "", "filesystem", "storage driver to use")
 
-	rootCmd.Flags().StringVarP(&storageDriver, argStorageDriver, "", "filesystem", "storage driver to use")
-	viper.BindPFlag(argStorageDriver, rootCmd.Flags().Lookup(argStorageDriver))
+	// filesystem
+	addStringFlag(&config.Filesystem.Path, argFilesystemPath, "", "./files", "path to markdown files")
 
-	rootCmd.Flags().StringVarP(&filesystemPath, argFilesystemPath, "", "./files", "path to markdown files")
-	viper.BindPFlag(argFilesystemPath, rootCmd.Flags().Lookup(argFilesystemPath))
+	// spaces
+	addStringFlag(&config.Spaces.Auth.Access, argSpacesAccessKey, "", "", "DigitalOcean Spaces access key")
+	addStringFlag(&config.Spaces.Auth.Secret, argSpacesSecretKey, "", "", "DigitalOcean Spaces secret key")
+	addStringFlag(&config.Spaces.Space, argSpacesSpace, "", "", "DigitalOcean Spaces space name")
+	addStringFlag(&config.Spaces.Path, argSpacesPath, "", "/", "DigitalOcean Spaces files path")
+	addStringFlag(&config.Spaces.Region, argSpacesRegion, "", "", "DigitalOcean Spaces region")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -89,27 +111,44 @@ func initConfig() {
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file: ", viper.ConfigFileUsed())
+		fmt.Println("using config file: ", viper.ConfigFileUsed())
+	}
+
+	err := viper.Unmarshal(&config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "couldn't apply config: %v", err)
+		os.Exit(1)
 	}
 }
 
 func runMdmw(cmd *cobra.Command, args []string) {
 	var sd storage.Driver
 
-	switch storageDriver {
+	fmt.Println(viper.GetString(argStorageDriver), config.Storage)
+
+	switch config.Storage {
 	case "filesystem":
-		sd = &filesystem.Driver{Path: filesystemPath}
+		sd = &filesystem.Driver{Config: config.Filesystem}
+		break
+	case "spaces":
+		spaces := &spaces.Driver{
+			Config: config.Spaces,
+		}
+		spaces.Connect()
+
+		sd = spaces
 		break
 	default:
-		fmt.Fprintf(os.Stderr, "storage driver %s does not exist\n", storageDriver)
+		fmt.Fprintf(os.Stderr, "storage driver %s does not exist\n", config.Storage)
 		os.Exit(1)
 	}
 
 	server := &mdmw.Server{
-		ListenAddress: listenAddress,
+		ListenAddress: config.ListenAddress,
 		StorageDriver: sd,
 	}
 
