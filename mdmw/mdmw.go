@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/kamaln7/mdmw/mdmw/storage"
 	blackfriday "gopkg.in/russross/blackfriday.v2"
@@ -29,8 +30,17 @@ func (s *Server) Listen() {
 }
 
 func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
-	path := r.RequestURI
-	source, err := s.StorageDriver.Read(path)
+	var (
+		path = r.RequestURI
+		raw  = false
+	)
+
+	if strings.HasSuffix(path, "/raw") {
+		raw = true
+		path = strings.TrimSuffix(path, "/raw")
+	}
+
+	output, err := s.StorageDriver.Read(path)
 
 	if err != nil {
 		if err == storage.ErrNotFound {
@@ -45,6 +55,8 @@ func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	output := blackfriday.Run(source)
+	if !raw {
+		output = blackfriday.Run(output)
+	}
 	w.Write(output)
 }
