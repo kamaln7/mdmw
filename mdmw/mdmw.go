@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/kamaln7/mdmw/mdmw/storage"
@@ -45,6 +46,7 @@ func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == storage.ErrNotFound {
 			w.WriteHeader(http.StatusNotFound)
+			w.Header().Set("Content-Type", "text/markdown")
 			w.Write([]byte(HTMLNotFound))
 			return
 		}
@@ -57,6 +59,12 @@ func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !raw {
 		output = blackfriday.Run(output)
+
+		// poor man's templating
+		html := strings.Replace(HTMLOutput, "$body", string(output), 1)
+		html = strings.Replace(html, "$title", filepath.Base(path), -1)
+		output = []byte(html)
 	}
+	w.Header().Set("Content-Type", "text/html")
 	w.Write(output)
 }
