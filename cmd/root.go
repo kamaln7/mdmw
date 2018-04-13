@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/kamaln7/mdmw/mdmw"
 	"github.com/kamaln7/mdmw/mdmw/storage"
@@ -54,14 +55,16 @@ const (
 	argSpacesSpace     = "spaces.space"
 	argSpacesRegion    = "spaces.region"
 	argSpacesPath      = "spaces.path"
+	argSpacesCache     = "spaces.cache"
 )
 
 // Config contains the mdmw config
 type Config struct {
-	ListenAddress string
-	Storage       string
-	Filesystem    filesystem.Config
-	Spaces        spaces.Config
+	ListenAddress       string
+	Storage             string
+	Filesystem          filesystem.Config
+	Spaces              spaces.Config
+	SpacesCacheDuration string
 }
 
 var config Config
@@ -97,6 +100,7 @@ func init() {
 	addStringFlag(&config.Spaces.Space, argSpacesSpace, "", "", "DigitalOcean Spaces space name")
 	addStringFlag(&config.Spaces.Path, argSpacesPath, "", "/", "DigitalOcean Spaces files path")
 	addStringFlag(&config.Spaces.Region, argSpacesRegion, "", "", "DigitalOcean Spaces region")
+	addStringFlag(&config.SpacesCacheDuration, argSpacesCache, "", "1m", "DigitalOcean Spaces cache time")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -133,6 +137,13 @@ func runMdmw(cmd *cobra.Command, args []string) {
 		sd = &filesystem.Driver{Config: config.Filesystem}
 		break
 	case "spaces":
+		duration, err := time.ParseDuration(config.SpacesCacheDuration)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "couldn't parse time duration %s: %v\n", config.SpacesCacheDuration, err)
+			os.Exit(1)
+		}
+		config.Spaces.Cache = duration
+
 		spaces := &spaces.Driver{
 			Config: config.Spaces,
 		}
