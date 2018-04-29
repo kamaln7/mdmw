@@ -1,23 +1,3 @@
-// Copyright © 2018 Kamal Nasser <hello@kamal.io>
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-
 package cmd
 
 import (
@@ -46,7 +26,8 @@ var rootCmd = &cobra.Command{
 const (
 	argListenAddress = "listenaddress"
 
-	argStorageDriver = "storage"
+	argStorageDriver     = "storage"
+	argValidateExtension = "validateextension"
 
 	argFilesystemPath = "filesystem.path"
 
@@ -65,6 +46,7 @@ type Config struct {
 	Filesystem          filesystem.Config
 	Spaces              spaces.Config
 	SpacesCacheDuration string
+	ValidateExtension   bool
 }
 
 var config Config
@@ -83,6 +65,11 @@ func addStringFlag(p *string, name, shorthand, value, usage string) {
 	viper.BindPFlag(name, rootCmd.Flags().Lookup(name))
 }
 
+func addBoolFlag(p *bool, name, shorthand string, value bool, usage string) {
+	rootCmd.Flags().BoolVarP(p, name, shorthand, value, usage)
+	viper.BindPFlag(name, rootCmd.Flags().Lookup(name))
+}
+
 func init() {
 	cobra.OnInitialize(initConfig)
 
@@ -90,6 +77,7 @@ func init() {
 
 	addStringFlag(&config.ListenAddress, argListenAddress, "", "localhost:4000", "address to listen on")
 	addStringFlag(&config.Storage, argStorageDriver, "", "filesystem", "storage driver to use")
+	addBoolFlag(&config.ValidateExtension, argValidateExtension, "", true, "validate that files have a markdown extension")
 
 	// filesystem
 	addStringFlag(&config.Filesystem.Path, argFilesystemPath, "", "./files", "path to markdown files")
@@ -157,8 +145,9 @@ func runMdmw(cmd *cobra.Command, args []string) {
 	}
 
 	server := &mdmw.Server{
-		ListenAddress: config.ListenAddress,
-		StorageDriver: sd,
+		ListenAddress:     config.ListenAddress,
+		StorageDriver:     sd,
+		ValidateExtension: config.ValidateExtension,
 	}
 
 	server.Listen()

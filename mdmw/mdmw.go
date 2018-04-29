@@ -11,10 +11,13 @@ import (
 	blackfriday "gopkg.in/russross/blackfriday.v2"
 )
 
+var MarkdownExtensions = []string{".md", ".markdown", ".mdown", ".mkdn", ".mkd"}
+
 // Server is a mdmw HTTP server
 type Server struct {
-	StorageDriver storage.Driver
-	ListenAddress string
+	StorageDriver     storage.Driver
+	ListenAddress     string
+	ValidateExtension bool
 
 	mux *http.ServeMux
 }
@@ -43,6 +46,23 @@ func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 		path = strings.TrimSuffix(path, "/raw")
 	}
 
+	if s.ValidateExtension {
+		extension := filepath.Ext(path)
+		valid := false
+		for _, ext := range MarkdownExtensions {
+			if ext == extension {
+				valid = true
+				break
+			}
+		}
+
+		if !valid {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(HTMLNotFound))
+			return
+		}
+	}
+
 	output, err := s.StorageDriver.Read(path)
 
 	if err != nil {
@@ -63,6 +83,7 @@ func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/markdown")
 	} else {
 		// render markdown as html
+		w.Header().Set("Content-Type", "text/html")
 		output = blackfriday.Run(output)
 
 		// poor man's templating
