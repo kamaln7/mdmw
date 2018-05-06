@@ -11,11 +11,13 @@ mdmw supports two storage drivers:
 
 ### installation
 
-TODO 
+1. download a binary suitable for your OS from [the releases page](https://github.com/kamaln7/mdmw/releases)
+2. place said binary in `/usr/local/bin` or wherever you would like
 
 ### usage
 
-TODO
+1. by default, mdmw listens on `localhost:4000`. If you’d like to change that, use the `—listen_address` or `LISTEN_ADDRESS` flag.
+2. WIP
 
 ### license
 
