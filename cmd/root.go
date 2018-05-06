@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -24,7 +25,8 @@ var rootCmd = &cobra.Command{
 }
 
 const (
-	argListenAddress = "listenaddress"
+	argListenAddress  = "listenaddress"
+	argOutputTemplate = "outputtemplate"
 
 	argStorageDriver     = "storage"
 	argValidateExtension = "validateextension"
@@ -47,6 +49,7 @@ type Config struct {
 	Spaces              spaces.Config
 	SpacesCacheDuration string
 	ValidateExtension   bool
+	OutputTemplate      string
 }
 
 var config Config
@@ -78,6 +81,7 @@ func init() {
 	addStringFlag(&config.ListenAddress, argListenAddress, "", "localhost:4000", "address to listen on")
 	addStringFlag(&config.Storage, argStorageDriver, "", "filesystem", "storage driver to use")
 	addBoolFlag(&config.ValidateExtension, argValidateExtension, "", true, "validate that files have a markdown extension")
+	addStringFlag(&config.OutputTemplate, argOutputTemplate, "", "", "path to HTML output template")
 
 	// filesystem
 	addStringFlag(&config.Filesystem.Path, argFilesystemPath, "", "./files", "path to markdown files")
@@ -148,6 +152,23 @@ func runMdmw(cmd *cobra.Command, args []string) {
 		ListenAddress:     config.ListenAddress,
 		StorageDriver:     sd,
 		ValidateExtension: config.ValidateExtension,
+	}
+
+	tmpl := config.OutputTemplate
+	if config.OutputTemplate != "" {
+		source, err := ioutil.ReadFile(config.OutputTemplate)
+		if err != nil {
+			fmt.Fprint(os.Stderr, "couldn't read template file %s: %v\n", config.OutputTemplate, err)
+			os.Exit(1)
+		}
+
+		tmpl = string(source)
+	}
+
+	err := server.SetOutputTemplate(tmpl)
+	if err != nil {
+		fmt.Fprint(os.Stderr, "couldn't set template: %v\n", err)
+		os.Exit(1)
 	}
 
 	server.Listen()

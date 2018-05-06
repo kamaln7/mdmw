@@ -1,7 +1,9 @@
 package mdmw
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -19,7 +21,8 @@ type Server struct {
 	ListenAddress     string
 	ValidateExtension bool
 
-	mux *http.ServeMux
+	mux        *http.ServeMux
+	outputTmpl *template.Template
 }
 
 // Listen starts the actual HTTP server
@@ -86,10 +89,25 @@ func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		output = blackfriday.Run(output)
 
-		// poor man's templating
-		html := strings.Replace(HTMLOutput, "$body", string(output), 1)
-		html = strings.Replace(html, "$title", filepath.Base(path), -1)
-		output = []byte(html)
+		var (
+			html      bytes.Buffer
+			tmplInput = struct {
+				Title, Body string
+			}{
+				Title: filepath.Base(path),
+				Body:  string(output),
+			}
+		)
+
+		err := s.outputTmpl.Execute(&html, tmplInput)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "couldn't execute output template: %v\n", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(HTMLServerError))
+			return
+		}
+
+		output = html.Bytes()
 	}
 	w.Write(output)
 }
