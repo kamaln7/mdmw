@@ -14,6 +14,8 @@ RUN go build -o dist/mdmw .
 FROM alpine
 COPY --from=build-env /go/src/github.com/kamaln7/mdmw/dist/mdmw /opt/mdmw
 
+RUN apk add --no-cache ca-certificates
+
 EXPOSE 4000
 ENV LISTENADDRESS 0.0.0.0:4000
 
