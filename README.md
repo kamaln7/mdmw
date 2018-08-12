@@ -13,6 +13,23 @@ mdmw supports two storage drivers (i.e. where it pulls markdown files from):
 
 mdmw exposes an HTTP server and uses the URI as the path for the markdown files.
 
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [installation](#installation)
+  - [use the docker image](#use-the-docker-image)
+  - [use a pre-built mdmw binary -RECOMMENDED-](#use-a-pre-built-mdmw-binary--recommended-)
+- [usage](#usage)
+  - [options](#options)
+  - [configuration examples](#configuration-examples)
+    - [as a yaml config file](#as-a-yaml-config-file)
+    - [as cli flags](#as-cli-flags)
+    - [as environment variables](#as-environment-variables)
+- [license](#license)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 ### installation
 
 #### use the docker image
