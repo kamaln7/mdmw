@@ -22,3 +22,4 @@ git:
   short_hash: true
 dockers:
   - image: kamaln7/mdmw
+    dockerfile: Dockerfile-goreleaser
