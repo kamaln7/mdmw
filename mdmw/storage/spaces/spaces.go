@@ -86,7 +86,7 @@ func (d *Driver) fetchFromSpaces(path string) ([]byte, error) {
 			case "InvalidAccessKeyId":
 				return nil, storage.ErrForbidden
 			default:
-				return nil, err
+				return nil, aerr
 			}
 		}
 

@@ -74,10 +74,13 @@ func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte(HTMLNotFound))
 		case storage.ErrForbidden:
+			fmt.Fprintf(os.Stderr, "couldn't read %s: %#v\n", path, err)
+
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte(HTMLForbidden))
 		default:
 			fmt.Fprintf(os.Stderr, "couldn't serve %s: %#v\n", path, err)
+
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(HTMLServerError))
 		}
