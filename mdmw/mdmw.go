@@ -92,10 +92,11 @@ func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 		var (
 			html      bytes.Buffer
 			tmplInput = struct {
-				Title, Body string
+				Title string
+				Body  template.HTML
 			}{
 				Title: filepath.Base(path),
-				Body:  string(output),
+				Body:  template.HTML(output),
 			}
 		)
 
