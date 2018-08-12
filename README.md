@@ -18,8 +18,8 @@ mdmw exposes an HTTP server and uses the URI as the path for the markdown files.
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [installation](#installation)
-  - [use the docker image](#use-the-docker-image)
-  - [use a pre-built mdmw binary -RECOMMENDED-](#use-a-pre-built-mdmw-binary--recommended-)
+  - [use the docker image RECOMMENDED](#use-the-docker-image-recommended)
+  - [use a pre-built mdmw binary](#use-a-pre-built-mdmw-binary)
 - [usage](#usage)
   - [options](#options)
   - [configuration examples](#configuration-examples)
@@ -32,7 +32,7 @@ mdmw exposes an HTTP server and uses the URI as the path for the markdown files.
 
 ### installation
 
-#### use the docker image
+#### use the docker image RECOMMENDED
 
 1. pull the latest docker image
 
@@ -40,7 +40,7 @@ mdmw exposes an HTTP server and uses the URI as the path for the markdown files.
 docker pull kamaln7/mdmw:latest
 ```
 
-#### use a pre-built mdmw binary -RECOMMENDED-
+#### use a pre-built mdmw binary
 
 1. download a binary suitable for your OS from [the releases page](https://github.com/kamaln7/mdmw/releases)
 2. place said binary in `/usr/local/bin` or wherever you would like
