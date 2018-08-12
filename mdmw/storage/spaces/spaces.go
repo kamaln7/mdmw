@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -73,6 +74,11 @@ func (d *Driver) Read(path string) ([]byte, error) {
 }
 
 func (d *Driver) fetchFromSpaces(path string) ([]byte, error) {
+	if strings.HasSuffix(path, "/") {
+		// refuse to read directories
+		return nil, storage.ErrNotFound
+	}
+
 	output, err := d.spaces.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(d.Config.Space),
 		Key:    aws.String(path),
