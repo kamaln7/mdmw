@@ -26,9 +26,12 @@ func (d *Driver) Read(path string) ([]byte, error) {
 
 	content, err := ioutil.ReadFile(filePath)
 
-	if os.IsNotExist(err) {
+	switch {
+	case os.IsNotExist(err):
 		return nil, storage.ErrNotFound
+	case os.IsPermission(err):
+		return nil, storage.ErrForbidden
+	default:
+		return content, err
 	}
-
-	return content, err
 }

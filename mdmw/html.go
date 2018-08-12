@@ -44,6 +44,26 @@ const HTMLNotFound = `
 	</body>
 	</html>	
 `
+const HTMLForbidden = `
+	<!DOCTYPE html>
+	<html>
+	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>403 forbidden</title>
+		<style>
+		p {
+			text-align:center; font-family: -apple-system, "Helvetica Neue", "Lucida Grande", Helvetica, Arial, sans-serif; color: #666; font-size: 24px;
+		}
+		strong {
+			color: #444;
+		}
+		</style>
+	</head>
+	<body>
+		<p><strong>403</strong> forbidden</p>
+	</body>
+	</html>	
+`
 
 const HTMLOutput = `
 <!DOCTYPE html>

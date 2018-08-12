@@ -8,5 +8,6 @@ type Driver interface {
 }
 
 var (
-	ErrNotFound = errors.New("file not found")
+	ErrNotFound  = errors.New("file not found")
+	ErrForbidden = errors.New("could not read file")
 )

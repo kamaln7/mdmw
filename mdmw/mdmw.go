@@ -69,15 +69,19 @@ func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 	output, err := s.StorageDriver.Read(path)
 
 	if err != nil {
-		if err == storage.ErrNotFound {
+		switch err {
+		case storage.ErrNotFound:
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte(HTMLNotFound))
-			return
+		case storage.ErrForbidden:
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte(HTMLForbidden))
+		default:
+			fmt.Fprintf(os.Stderr, "couldn't serve %s: %#v\n", path, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(HTMLServerError))
 		}
 
-		fmt.Fprintf(os.Stderr, "couldn't serve %s: %v\n", path, err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(HTMLServerError))
 		return
 	}
 

@@ -79,8 +79,15 @@ func (d *Driver) fetchFromSpaces(path string) ([]byte, error) {
 	})
 
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == s3.ErrCodeNoSuchKey {
-			return nil, storage.ErrNotFound
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case s3.ErrCodeNoSuchKey:
+				return nil, storage.ErrNotFound
+			case "InvalidAccessKeyId":
+				return nil, storage.ErrForbidden
+			default:
+				return nil, err
+			}
 		}
 
 		return nil, err
