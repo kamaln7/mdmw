@@ -92,7 +92,7 @@ func init() {
 	addStringFlag(&config.Spaces.Space, argSpacesSpace, "", "", "DigitalOcean Spaces space name")
 	addStringFlag(&config.Spaces.Path, argSpacesPath, "", "/", "DigitalOcean Spaces files path")
 	addStringFlag(&config.Spaces.Region, argSpacesRegion, "", "", "DigitalOcean Spaces region")
-	addStringFlag(&config.SpacesCacheDuration, argSpacesCache, "", "1m", "DigitalOcean Spaces cache time")
+	addStringFlag(&config.SpacesCacheDuration, argSpacesCache, "", "0", "DigitalOcean Spaces cache time")
 }
 
 // initConfig reads in config file and ENV variables if set.
