@@ -1,3 +1,5 @@
 FROM drone/ca-certs
 COPY mdmw /
+EXPOSE 4000
+ENV LISTENADDRESS 0.0.0.0:4000
 ENTRYPOINT ["/mdmw"]
