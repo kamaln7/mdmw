@@ -23,3 +23,6 @@ git:
 dockers:
   - image: kamaln7/mdmw
     dockerfile: Dockerfile-goreleaser
+    tag_templates:
+      - "{{ .Version }}"
+      - latest
