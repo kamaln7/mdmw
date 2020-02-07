@@ -1,3 +1,5 @@
 files
 .idea
 dist/
+.env
+__debug_bin

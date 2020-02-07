@@ -5,64 +5,163 @@ import (
 )
 
 const HTMLServerError = `
-	<!DOCTYPE html>
-	<html>
-	<head>
-		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>500 internal server error</title>
-		<style>
-		p {
-			text-align:center; font-family: -apple-system, "Helvetica Neue", "Lucida Grande", Helvetica, Arial, sans-serif; color: #666; font-size: 24px;
-		}
-		strong {
-			color: #444;
-		}
-		</style>
-	</head>
-	<body>
-		<p><strong>500</strong> internal server error</p>
-	</body>
-	</html>	
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+
+        p {
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+            color: #000;
+            font-size: 14px;
+            margin-top: -50px;
+        }
+
+        p.code {
+            font-size: 24px;
+            font-weight: 500;
+            border-bottom: 1px solid #e0e1e2;
+            padding: 0 20px 15px;
+        }
+
+        p.text {
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <p class="code">
+        500
+    </p>
+    <p class="text">Internal server error.</p>
+</body>
+
+</html>
 `
 const HTMLNotFound = `
-	<!DOCTYPE html>
-	<html>
-	<head>
-		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>404 not found</title>
-		<style>
-		p {
-			text-align:center; font-family: -apple-system, "Helvetica Neue", "Lucida Grande", Helvetica, Arial, sans-serif; color: #666; font-size: 24px;
-		}
-		strong {
-			color: #444;
-		}
-		</style>
-	</head>
-	<body>
-		<p><strong>404</strong> not found</p>
-	</body>
-	</html>	
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+
+        p {
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+            color: #000;
+            font-size: 14px;
+            margin-top: -50px;
+        }
+
+        p.code {
+            font-size: 24px;
+            font-weight: 500;
+            border-bottom: 1px solid #e0e1e2;
+            padding: 0 20px 15px;
+        }
+
+        p.text {
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <p class="code">
+        404
+    </p>
+    <p class="text">Not found.</p>
+</body>
+
+</html>
 `
 const HTMLForbidden = `
-	<!DOCTYPE html>
-	<html>
-	<head>
-		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>403 forbidden</title>
-		<style>
-		p {
-			text-align:center; font-family: -apple-system, "Helvetica Neue", "Lucida Grande", Helvetica, Arial, sans-serif; color: #666; font-size: 24px;
-		}
-		strong {
-			color: #444;
-		}
-		</style>
-	</head>
-	<body>
-		<p><strong>403</strong> forbidden</p>
-	</body>
-	</html>	
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+
+        p {
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+            color: #000;
+            font-size: 14px;
+            margin-top: -50px;
+        }
+
+        p.code {
+            font-size: 24px;
+            font-weight: 500;
+            border-bottom: 1px solid #e0e1e2;
+            padding: 0 20px 15px;
+        }
+
+        p.text {
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <p class="code">
+        403
+    </p>
+    <p class="text">Forbidden.</p>
+</body>
+
+</html>
 `
 
 const HTMLOutput = `
