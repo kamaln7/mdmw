@@ -2,6 +2,8 @@ package mdmw
 
 import (
 	"html/template"
+
+	"github.com/kamaln7/mdmw/mdmw/storage"
 )
 
 const HTMLServerError = `
@@ -164,6 +166,11 @@ const HTMLForbidden = `
 </html>
 `
 
+type outputTemplateData struct {
+	Title string
+	Body  template.HTML
+}
+
 const HTMLOutput = `
 <!DOCTYPE html>
 <html lang="en">
@@ -178,6 +185,11 @@ const HTMLOutput = `
 	</body>
 </html>
 `
+
+type listingTemplateData struct {
+	Title string
+	Files []storage.File
+}
 
 func (s *Server) SetOutputTemplate(source string) error {
 	if source == "" {

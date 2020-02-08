@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -34,4 +35,26 @@ func (d *Driver) Read(path string) ([]byte, error) {
 	default:
 		return content, err
 	}
+}
+
+func (d *Driver) List(path string) ([]storage.File, error) {
+	var files []storage.File
+
+	filePath := filepath.Join(d.Config.Path, path)
+
+	err := filepath.Walk(filePath, func(path string, info os.FileInfo, err error) error {
+		file := storage.File{
+			Name: info.Name(),
+			Path: fmt.Sprintf("%s/%s", path, info.Name()),
+		}
+
+		files = append(files, file)
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return files, nil
 }

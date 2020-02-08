@@ -25,11 +25,12 @@ var rootCmd = &cobra.Command{
 }
 
 const (
-	argListenAddress  = "listenaddress"
-	argOutputTemplate = "outputtemplate"
-
-	argStorageDriver     = "storage"
+	argListenAddress     = "listenaddress"
+	argOutputTemplate    = "outputtemplate"
 	argValidateExtension = "validateextension"
+	argRootListing       = "rootlisting"
+
+	argStorageDriver = "storage"
 
 	argFilesystemPath = "filesystem.path"
 
@@ -50,6 +51,7 @@ type Config struct {
 	SpacesCacheDuration string
 	ValidateExtension   bool
 	OutputTemplate      string
+	RootListing         bool
 }
 
 var config Config
@@ -82,6 +84,7 @@ func init() {
 	addStringFlag(&config.Storage, argStorageDriver, "", "filesystem", "storage driver to use")
 	addBoolFlag(&config.ValidateExtension, argValidateExtension, "", true, "validate that files have a markdown extension")
 	addStringFlag(&config.OutputTemplate, argOutputTemplate, "", "", "path to HTML output template")
+	addBoolFlag(&config.RootListing, argRootListing, "", true, "show a file listing at /")
 
 	// filesystem
 	addStringFlag(&config.Filesystem.Path, argFilesystemPath, "", "./files", "path to markdown files")
@@ -150,15 +153,16 @@ func runMdmw(cmd *cobra.Command, args []string) {
 
 	server := &mdmw.Server{
 		ListenAddress:     config.ListenAddress,
-		StorageDriver:     sd,
+		Storage:           sd,
 		ValidateExtension: config.ValidateExtension,
+		RootListing:       config.RootListing,
 	}
 
 	tmpl := config.OutputTemplate
 	if config.OutputTemplate != "" {
 		source, err := ioutil.ReadFile(config.OutputTemplate)
 		if err != nil {
-			fmt.Fprint(os.Stderr, "couldn't read template file %s: %v\n", config.OutputTemplate, err)
+			fmt.Fprintf(os.Stderr, "couldn't read template file %s: %v\n", config.OutputTemplate, err)
 			os.Exit(1)
 		}
 
@@ -167,7 +171,7 @@ func runMdmw(cmd *cobra.Command, args []string) {
 
 	err := server.SetOutputTemplate(tmpl)
 	if err != nil {
-		fmt.Fprint(os.Stderr, "couldn't set template: %v\n", err)
+		fmt.Fprintf(os.Stderr, "couldn't set template: %v\n", err)
 		os.Exit(1)
 	}
 

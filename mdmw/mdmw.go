@@ -2,12 +2,15 @@ package mdmw
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	textTemplate "text/template"
 
 	"github.com/kamaln7/mdmw/mdmw/storage"
 	blackfriday "gopkg.in/russross/blackfriday.v2"
@@ -17,9 +20,9 @@ var MarkdownExtensions = []string{".md", ".markdown", ".mdown", ".mkdn", ".mkd"}
 
 // Server is a mdmw HTTP server
 type Server struct {
-	StorageDriver     storage.Driver
-	ListenAddress     string
-	ValidateExtension bool
+	Storage                        storage.Driver
+	ListenAddress                  string
+	ValidateExtension, RootListing bool
 
 	mux        *http.ServeMux
 	outputTmpl *template.Template
@@ -38,84 +41,153 @@ func (s *Server) Listen() {
 }
 
 func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	var (
-		path = r.RequestURI
-		raw  = false
-	)
+	if s.RootListing && r.RequestURI == "/" {
+		middlewareChain(w, r, s.fetchListing, s.renderMarkdown, s.prettyHTML)
+		return
+	}
 
+	middlewareChain(w, r, s.trimRaw, s.validateExtension, s.getMarkdown, s.renderMarkdown, s.prettyHTML)
+}
+
+func (s *Server) trimRaw(res Response, req *http.Request) Response {
+	path := req.RequestURI
 	if strings.HasSuffix(path, "/raw") {
-		raw = true
-		path = strings.TrimSuffix(path, "/raw")
+		req.RequestURI = strings.TrimSuffix(path, "/raw")
+		res.ctx = context.WithValue(res.Context(), IsRaw{}, true)
 	}
 
-	if s.ValidateExtension {
-		extension := filepath.Ext(path)
-		valid := false
-		for _, ext := range MarkdownExtensions {
-			if ext == extension {
-				valid = true
-				break
-			}
-		}
+	return res
+}
 
-		if !valid {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(HTMLNotFound))
-			return
+func (s *Server) validateExtension(res Response, req *http.Request) Response {
+	if !s.ValidateExtension {
+		return res
+	}
+
+	extension := filepath.Ext(req.RequestURI)
+	for _, ext := range MarkdownExtensions {
+		if ext == extension {
+			return res
 		}
 	}
 
-	output, err := s.StorageDriver.Read(path)
+	return Response{
+		StatusCode: http.StatusNotFound,
+		Err:        fmt.Errorf("invalid extension %s", extension),
+	}
+}
+
+func (s *Server) getMarkdown(res Response, req *http.Request) Response {
+	output, err := s.Storage.Read(req.RequestURI)
 
 	if err != nil {
 		switch err {
 		case storage.ErrNotFound:
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(HTMLNotFound))
-		case storage.ErrForbidden:
-			fmt.Fprintf(os.Stderr, "couldn't read %s: %#v\n", path, err)
-
-			w.WriteHeader(http.StatusForbidden)
-			w.Write([]byte(HTMLForbidden))
-		default:
-			fmt.Fprintf(os.Stderr, "couldn't serve %s: %#v\n", path, err)
-
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(HTMLServerError))
-		}
-
-		return
-	}
-
-	if raw {
-		// raw markdown
-		w.Header().Set("Content-Type", "text/markdown")
-	} else {
-		// render markdown as html
-		w.Header().Set("Content-Type", "text/html")
-		output = blackfriday.Run(output)
-
-		var (
-			html      bytes.Buffer
-			tmplInput = struct {
-				Title string
-				Body  template.HTML
-			}{
-				Title: filepath.Base(path),
-				Body:  template.HTML(output),
+			return Response{
+				StatusCode: http.StatusNotFound,
+				Err:        err,
 			}
-		)
-
-		err := s.outputTmpl.Execute(&html, tmplInput)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "couldn't execute output template: %v\n", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(HTMLServerError))
-			return
+		case storage.ErrForbidden:
+			return Response{
+				StatusCode: http.StatusForbidden,
+				Err:        fmt.Errorf("couldn't read from storage: %v", err),
+			}
+		default:
+			return Response{
+				Err: err,
+			}
 		}
-
-		output = html.Bytes()
 	}
-	w.Write(output)
+
+	res.Body = *bytes.NewBuffer(output)
+
+	if res.Context().Value(IsRaw{}) != nil {
+		// raw markdown
+		res.Header().Set("Content-Type", "text/markdown")
+		res.Err = errors.New("")
+		res.StatusCode = http.StatusOK
+		return res
+	}
+
+	return res
+}
+
+func (s *Server) prettyHTML(res Response, req *http.Request) Response {
+	res.Header().Set("Content-Type", "text/html")
+
+	var html bytes.Buffer
+
+	title := filepath.Base(req.RequestURI)
+	err := s.outputTmpl.Execute(&html, outputTemplateData{
+		Title: title,
+		Body:  template.HTML(res.Body.String()),
+	})
+
+	if err != nil {
+		return Response{
+			Err: fmt.Errorf("couldn't execute output template: %v", err),
+		}
+	}
+
+	res.Title = title
+	res.Body = *bytes.NewBuffer(html.Bytes())
+	return res
+}
+
+func (s *Server) fetchListing(res Response, req *http.Request) Response {
+	path := req.RequestURI
+
+	// get files
+	files, err := s.Storage.List(path)
+	if err != nil {
+		return Response{
+			StatusCode: 500,
+			Err:        fmt.Errorf("couldn't list files at %s: %v", path, err),
+		}
+	}
+
+	title := fmt.Sprintf("Listing of %s", path)
+	if len(files) == 0 {
+		return Response{
+			Title: title,
+			Body:  *bytes.NewBufferString("There are no files here yet."),
+		}
+	}
+
+	var md bytes.Buffer
+	tmpl, err := textTemplate.New("").Parse(`
+# {{.Title}}
+
+{{range $file := .Files}}
+* [{{$file.Name}}]({{$file.Path}})
+{{end}}
+`)
+	if err != nil {
+		return Response{
+			Err: fmt.Errorf("couldn't parse output template: %v", err),
+		}
+	}
+
+	err = tmpl.Execute(&md, listingTemplateData{
+		Title: title,
+		Files: files,
+	})
+	if err != nil {
+		return Response{
+			Err: fmt.Errorf("couldn't execute output template: %v", err),
+		}
+	}
+
+	return Response{
+		Title: title,
+		Body:  md,
+	}
+}
+
+func (s *Server) renderMarkdown(res Response, req *http.Request) Response {
+	body := res.Body.Bytes()
+	res.Body = *bytes.NewBuffer(blackfriday.Run(body))
+	res.Header().Set("Content-Type", "text/markdown")
+
+	return res
 }

@@ -104,3 +104,37 @@ func (d *Driver) fetchFromSpaces(path string) ([]byte, error) {
 
 	return buf.Bytes(), nil
 }
+
+func (d *Driver) List(path string) ([]storage.File, error) {
+	var files []storage.File
+	path = strings.TrimPrefix(path, "/")
+
+	out, err := d.spaces.ListObjectsV2(&s3.ListObjectsV2Input{
+		Bucket:    aws.String(d.Config.Space),
+		Prefix:    aws.String(path),
+		Delimiter: aws.String("/"),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	prefixes := make(map[string]interface{}, 0)
+	for _, cp := range out.CommonPrefixes {
+		name := strings.TrimRight(*(cp.Prefix), "/")
+		prefixes[name] = struct{}{}
+	}
+
+	for _, obj := range out.Contents {
+		name := *obj.Key
+		if _, isDir := prefixes[name]; isDir {
+			continue
+		}
+
+		files = append(files, storage.File{
+			Name: name,
+			Path: fmt.Sprintf("%s/%s", path, name),
+		})
+	}
+
+	return files, nil
+}
