@@ -58,81 +58,81 @@ func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 	middlewareChain(w, r, s.trimRaw, s.validateExtension, s.getMarkdown, s.renderMarkdown, s.prettyHTML)
 }
 
-func (s *Server) trimRaw(req *Request) error {
-	path := req.Request().RequestURI
+func (s *Server) trimRaw(req *http.Request, res *Response) error {
+	path := req.RequestURI
 	if strings.HasSuffix(path, "/raw") {
-		req.Request().RequestURI = strings.TrimSuffix(path, "/raw")
-		req.ctx = context.WithValue(req.Context(), IsRaw{}, true)
+		req.RequestURI = strings.TrimSuffix(path, "/raw")
+		res.ctx = context.WithValue(res.Context(), IsRaw{}, true)
 	}
 
 	return nil
 }
 
-func (s *Server) validateExtension(req *Request) error {
+func (s *Server) validateExtension(req *http.Request, res *Response) error {
 	if !s.ValidateExtension {
 		return nil
 	}
 
-	extension := filepath.Ext(req.Request().RequestURI)
+	extension := filepath.Ext(req.RequestURI)
 	for _, ext := range MarkdownExtensions {
 		if ext == extension {
 			return nil
 		}
 	}
 
-	req.Body().StatusCode = http.StatusNotFound
+	res.StatusCode = http.StatusNotFound
 	return fmt.Errorf("invalid extension %s", extension)
 }
 
-func (s *Server) getMarkdown(req *Request) error {
-	output, err := s.Storage.Read(req.Request().RequestURI)
+func (s *Server) getMarkdown(req *http.Request, res *Response) error {
+	output, err := s.Storage.Read(req.RequestURI)
 
 	if err != nil {
 		switch err {
 		case storage.ErrNotFound:
-			req.Body().StatusCode = http.StatusNotFound
+			res.StatusCode = http.StatusNotFound
 			return fmt.Errorf("object not found: %v", err)
 		case storage.ErrForbidden:
-			req.Body().StatusCode = http.StatusForbidden
+			res.StatusCode = http.StatusForbidden
 			return fmt.Errorf("couldn't read from storage: %v", err)
 		default:
 			return err
 		}
 	}
 
-	req.Body().body = bytes.NewBuffer(output)
+	res.Body = output
 
-	if req.Context().Value(IsRaw{}) != nil {
+	if res.Context().Value(IsRaw{}) != nil {
 		// raw markdown
-		req.Body().Header().Set("Content-Type", "text/markdown")
-		req.Cancel()
+		res.Header().Set("Content-Type", "text/markdown")
+		res.Cancel()
 	}
 
 	return nil
 }
 
-func (s *Server) prettyHTML(req *Request) error {
-	req.Body().Header().Set("Content-Type", "text/html")
+func (s *Server) prettyHTML(req *http.Request, res *Response) error {
+	res.Header().Set("Content-Type", "text/html")
 
 	var html bytes.Buffer
 
-	title := filepath.Base(req.Request().RequestURI)
+	title := filepath.Base(req.RequestURI)
 	err := s.outputTmpl.Execute(&html, outputTemplateData{
 		Title: title,
-		Body:  template.HTML(req.Body().Body().String()),
+		Body:  template.HTML(string(res.Body)),
 	})
 
 	if err != nil {
 		return fmt.Errorf("couldn't execute output template: %v", err)
 	}
 
-	req.Body().Title = title
-	req.Body().body = bytes.NewBuffer(html.Bytes())
+	res.Title = title
+	res.Body = html.Bytes()
 	return nil
 }
 
-func (s *Server) fetchListing(req *Request) error {
-	path := req.Request().RequestURI
+func (s *Server) fetchListing(req *http.Request, res *Response) error {
+	path := req.RequestURI
 
 	// get files
 	files, err := s.Storage.List(path)
@@ -187,16 +187,14 @@ There are no files here
 		return fmt.Errorf("couldn't execute output template: %v", err)
 	}
 
-	req.Body().Title = title
-	req.Body().body = md
+	res.Title = title
+	res.Body = md.Bytes()
 	return nil
 }
 
-func (s *Server) renderMarkdown(req *Request) error {
-	body := req.Body().Body().Bytes()
-
-	req.Body().body = bytes.NewBuffer(blackfriday.Run(body))
-	req.Body().Header().Set("Content-Type", "text/markdown")
+func (s *Server) renderMarkdown(req *http.Request, res *Response) error {
+	res.Body = blackfriday.Run(res.Body)
+	res.Header().Set("Content-Type", "text/markdown")
 
 	return nil
 }

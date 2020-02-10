@@ -1,7 +1,6 @@
 package mdmw
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -10,110 +9,87 @@ import (
 	"strings"
 )
 
-type Middleware func(*Request) error
-type responseBody struct {
+type Middleware func(*http.Request, *Response) error
+type Response struct {
 	StatusCode int
 	Title      string
+	Body       []byte
 
-	body   *bytes.Buffer
 	header http.Header
-}
-type Request struct {
-	body *responseBody
-
-	ctx        context.Context
-	req        *http.Request
-	cancelFunc context.CancelFunc
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 type IsRaw struct{}
 
-func (rb *responseBody) Header() http.Header {
-	if rb.header == nil {
-		rb.header = make(http.Header)
+func (r *Response) Header() http.Header {
+	if r.header == nil {
+		r.header = make(http.Header)
 	}
 
-	return rb.header
+	return r.header
 }
 
-func (r *Request) Context() context.Context {
+func (r *Response) Context() context.Context {
 	if r.ctx == nil {
-		r.ctx, r.cancelFunc = context.WithCancel(context.Background())
+		r.ctx, r.cancel = context.WithCancel(context.Background())
 	}
 
 	return r.ctx
 }
 
-func (r *Request) Cancel() {
+func (r *Response) Cancel() {
 	_ = r.Context() // make sure ctx & cancelFunc aren't nil
 
-	r.cancelFunc()
-}
-
-func (r *Request) Request() *http.Request {
-	return r.req
-}
-
-func (r *Request) Body() *responseBody {
-	if r.body == nil {
-		r.body = &responseBody{}
-	}
-	return r.body
-}
-
-func (rb *responseBody) Body() *bytes.Buffer {
-	if rb.body == nil {
-		rb.body = new(bytes.Buffer)
-	}
-	return rb.body
+	r.cancel()
 }
 
 func middlewareChain(w http.ResponseWriter, req *http.Request, mws ...Middleware) {
-	mdmwReq := Request{
-		req: req,
-	}
-	var chain []string
+	var (
+		res   = &Response{}
+		chain []string
+		err   error
+	)
 
-	var err error
 	for _, mw := range mws {
 		chain = append(chain, getFunctionName(mw))
 
-		err = mw(&mdmwReq)
+		err = mw(req, res)
 
-		if mdmwReq.Context().Err() == context.Canceled || err != nil {
+		if res.Context().Err() == context.Canceled || err != nil {
 			break
 		}
 	}
 
 	if err != nil {
-		switch mdmwReq.Body().StatusCode {
+		switch res.StatusCode {
 		case 0:
-			mdmwReq.Body().StatusCode = http.StatusInternalServerError
+			res.StatusCode = http.StatusInternalServerError
 			fallthrough
 		case http.StatusInternalServerError:
 			fmt.Printf("error in request chain (uri=%s) %s: %v\n", req.RequestURI, strings.Join(chain, " -> "), err)
 
-			mdmwReq.Body().Header().Set("Content-Type", "text/html")
-			mdmwReq.Body().body = bytes.NewBufferString(HTMLServerError)
+			res.Header().Set("Content-Type", "text/html")
+			res.Body = []byte(HTMLServerError)
 		case http.StatusNotFound:
-			mdmwReq.Body().Header().Set("Content-Type", "text/html")
-			mdmwReq.Body().body = bytes.NewBufferString(HTMLNotFound)
+			res.Header().Set("Content-Type", "text/html")
+			res.Body = []byte(HTMLNotFound)
 		case http.StatusForbidden:
-			mdmwReq.Body().Header().Set("Content-Type", "text/html")
-			mdmwReq.Body().body = bytes.NewBufferString(HTMLForbidden)
+			res.Header().Set("Content-Type", "text/html")
+			res.Body = []byte(HTMLForbidden)
 		}
 	}
 
-	if mdmwReq.Body().StatusCode == 0 {
-		mdmwReq.Body().StatusCode = http.StatusOK
+	if res.StatusCode == 0 {
+		res.StatusCode = http.StatusOK
 	}
 
-	w.WriteHeader(mdmwReq.Body().StatusCode)
-	for header, values := range mdmwReq.Body().Header() {
+	w.WriteHeader(res.StatusCode)
+	for header, values := range res.Header() {
 		for _, value := range values {
 			w.Header().Add(header, value)
 		}
 	}
-	mdmwReq.Body().Body().WriteTo(w)
+	w.Write(res.Body)
 }
 
 func getFunctionName(i interface{}) string {
