@@ -11,17 +11,27 @@ import (
 	"strings"
 	textTemplate "text/template"
 
+	"github.com/igorsobreira/titlecase"
 	"github.com/kamaln7/mdmw/mdmw/storage"
 	blackfriday "gopkg.in/russross/blackfriday.v2"
 )
 
 var MarkdownExtensions = []string{".md", ".markdown", ".mdown", ".mkdn", ".mkd"}
 
+const (
+	_ = iota
+	ListingOff
+	ListingFiles
+	ListingTitleCase
+)
+
 // Server is a mdmw HTTP server
 type Server struct {
-	Storage                        storage.Driver
-	ListenAddress                  string
-	ValidateExtension, RootListing bool
+	Storage           storage.Driver
+	ListenAddress     string
+	ValidateExtension bool
+	RootListing       int
+	RootListingTitle  string
 
 	mux        *http.ServeMux
 	outputTmpl *template.Template
@@ -40,7 +50,7 @@ func (s *Server) Listen() {
 }
 
 func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
-	if s.RootListing && r.RequestURI == "/" {
+	if s.RootListing != ListingOff && r.RequestURI == "/" {
 		middlewareChain(w, r, s.fetchListing, s.renderMarkdown, s.prettyHTML)
 		return
 	}
@@ -130,20 +140,39 @@ func (s *Server) fetchListing(req *Request) error {
 		return fmt.Errorf("couldn't list files at %s: %v", path, err)
 	}
 
-	title := fmt.Sprintf("Listing of %s", path)
-	if len(files) == 0 {
-		req.Body().Title = title
-		req.Body().body = bytes.NewBufferString("There are no files here yet.")
-		req.Cancel()
-		return nil
+	// transform filename according to the listing type
+	if s.RootListing == ListingTitleCase {
+		for i, file := range files {
+			name := file.Name
+			// remove extension
+			name = strings.TrimSuffix(name, filepath.Ext(name))
+			// replace dashes with spaces
+			name = strings.NewReplacer(
+				"_", " ",
+				"-", " ",
+			).Replace(name)
+			// titlecase
+			name = titlecase.Title(name)
+
+			files[i].Name = name
+		}
+	}
+
+	title := s.RootListingTitle
+	if title == "" {
+		title = fmt.Sprintf("Listing of %s", path)
 	}
 
 	md := new(bytes.Buffer)
 	tmpl, err := textTemplate.New("").Parse(`
 # {{.Title}}
 
-{{range $file := .Files}}
+{{if .Files}}
+	{{range $file := .Files}}
 * [{{$file.Name}}]({{$file.Path}})
+	{{end}}
+{{else}}
+There are no files here
 {{end}}
 `)
 	if err != nil {

@@ -28,7 +28,8 @@ const (
 	argListenAddress     = "listenaddress"
 	argOutputTemplate    = "outputtemplate"
 	argValidateExtension = "validateextension"
-	argRootListing       = "rootlisting"
+	argRootListingType   = "rootlisting"
+	argRootListingTitle  = "rootlistingtitle"
 
 	argStorageDriver = "storage"
 
@@ -40,18 +41,20 @@ const (
 	argSpacesRegion    = "spaces.region"
 	argSpacesPath      = "spaces.path"
 	argSpacesCache     = "spaces.cache"
+
+	rootListingTypes = "title-case, files, off"
 )
 
 // Config contains the mdmw config
 type Config struct {
-	ListenAddress       string
-	Storage             string
-	Filesystem          filesystem.Config
-	Spaces              spaces.Config
-	SpacesCacheDuration string
-	ValidateExtension   bool
-	OutputTemplate      string
-	RootListing         bool
+	ListenAddress                     string
+	Storage                           string
+	Filesystem                        filesystem.Config
+	Spaces                            spaces.Config
+	SpacesCacheDuration               string
+	ValidateExtension                 bool
+	OutputTemplate                    string
+	RootListingType, RootListingTitle string
 }
 
 var config Config
@@ -84,7 +87,8 @@ func init() {
 	addStringFlag(&config.Storage, argStorageDriver, "", "filesystem", "storage driver to use")
 	addBoolFlag(&config.ValidateExtension, argValidateExtension, "", true, "validate that files have a markdown extension")
 	addStringFlag(&config.OutputTemplate, argOutputTemplate, "", "", "path to HTML output template")
-	addBoolFlag(&config.RootListing, argRootListing, "", true, "show a file listing at /")
+	addStringFlag(&config.RootListingType, argRootListingType, "", "title-case", "show a file listing at /. options: ("+rootListingTypes+")")
+	addStringFlag(&config.RootListingTitle, argRootListingTitle, "", "", "the title to use for the file listing")
 
 	// filesystem
 	addStringFlag(&config.Filesystem.Path, argFilesystemPath, "", "./files", "path to markdown files")
@@ -151,11 +155,25 @@ func runMdmw(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	var rootListing int
+	switch config.RootListingType {
+	case "title-case":
+		rootListing = mdmw.ListingTitleCase
+	case "files":
+		rootListing = mdmw.ListingFiles
+	case "off":
+		rootListing = mdmw.ListingOff
+	default:
+		fmt.Fprintf(os.Stderr, "unknown root listing type %s. options: (%s)\n", config.RootListingType, rootListingTypes)
+		os.Exit(1)
+	}
+
 	server := &mdmw.Server{
 		ListenAddress:     config.ListenAddress,
 		Storage:           sd,
 		ValidateExtension: config.ValidateExtension,
-		RootListing:       config.RootListing,
+		RootListing:       rootListing,
+		RootListingTitle:  config.RootListingTitle,
 	}
 
 	tmpl := config.OutputTemplate
