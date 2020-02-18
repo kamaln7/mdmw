@@ -12,6 +12,7 @@ import (
 	textTemplate "text/template"
 
 	"github.com/igorsobreira/titlecase"
+	"github.com/kamaln7/mdmw/mdmw/middleware"
 	"github.com/kamaln7/mdmw/mdmw/storage"
 	blackfriday "gopkg.in/russross/blackfriday.v2"
 )
@@ -32,10 +33,20 @@ type Server struct {
 	ValidateExtension bool
 	RootListing       int
 	RootListingTitle  string
+	Verbose           bool
 
 	mux        *http.ServeMux
 	outputTmpl *template.Template
 }
+
+type key int
+
+const (
+	_ key = iota
+	statusCode
+	pageTitle
+	isRaw
+)
 
 // Listen starts the actual HTTP server
 func (s *Server) Listen() {
@@ -51,24 +62,76 @@ func (s *Server) Listen() {
 
 func (s *Server) httpHandler(w http.ResponseWriter, r *http.Request) {
 	if s.RootListing != ListingOff && r.RequestURI == "/" {
-		middlewareChain(w, r, s.fetchListing, s.renderMarkdown, s.prettyHTML)
+		s.Serve(w, r, s.fetchListing, s.renderMarkdown, s.prettyHTML)
 		return
 	}
 
-	middlewareChain(w, r, s.trimRaw, s.validateExtension, s.getMarkdown, s.renderMarkdown, s.prettyHTML)
+	s.Serve(w, r, s.trimRaw, s.validateExtension, s.getMarkdown, s.renderMarkdown, s.prettyHTML)
 }
 
-func (s *Server) trimRaw(req *http.Request, res *Response) error {
-	path := req.RequestURI
-	if strings.HasSuffix(path, "/raw") {
-		req.RequestURI = strings.TrimSuffix(path, "/raw")
-		res.ctx = context.WithValue(res.Context(), IsRaw{}, true)
+// Serve serves a chain of middleware + pretty errors
+func (s *Server) Serve(w http.ResponseWriter, r *http.Request, mws ...middleware.Middleware) {
+	// first run the chain normally
+	ctx := middleware.Chain(middleware.New(r), mws...)
+
+	// then run again with prettyErrors
+	// this makes sure prettyErrors is run even if the middleware chain
+	postProcess := []middleware.Middleware{s.prettyErrors}
+
+	if s.Verbose {
+		postProcess = append(postProcess, middleware.Log)
+	}
+
+	ctx = middleware.Chain(ctx, postProcess...)
+
+	// serve
+	ctx.Apply(w)
+}
+
+func (s *Server) prettyErrors(ctx *middleware.Ctx) error {
+	req := ctx.Request()
+	err := req.Context().Err()
+
+	// set the default status code for a non-nil and non-context-canceled error to 500
+	if err != nil &&
+		err != context.Canceled &&
+		ctx.StatusCode == 0 {
+
+		ctx.StatusCode = http.StatusInternalServerError
+	}
+
+	// some error occurred
+	switch ctx.StatusCode {
+	case http.StatusInternalServerError:
+		fmt.Printf("error in request chain (uri=%s) %s: %v\n", req.RequestURI, strings.Join(ctx.Chain(), " -> "), err)
+
+		ctx.Header().Set("Content-Type", "text/html")
+		ctx.Body = []byte(HTMLServerError)
+	case http.StatusNotFound:
+		ctx.Header().Set("Content-Type", "text/html")
+		ctx.Body = []byte(HTMLNotFound)
+	case http.StatusForbidden:
+		ctx.Header().Set("Content-Type", "text/html")
+		ctx.Body = []byte(HTMLForbidden)
 	}
 
 	return nil
 }
 
-func (s *Server) validateExtension(req *http.Request, res *Response) error {
+func (s *Server) trimRaw(ctx *middleware.Ctx) error {
+	req := ctx.Request()
+
+	path := req.RequestURI
+	if strings.HasSuffix(path, "/raw") {
+		req.RequestURI = strings.TrimSuffix(path, "/raw")
+		ctx.WithValue(isRaw, true)
+	}
+
+	return nil
+}
+
+func (s *Server) validateExtension(ctx *middleware.Ctx) error {
+	req := ctx.Request()
 	if !s.ValidateExtension {
 		return nil
 	}
@@ -80,58 +143,61 @@ func (s *Server) validateExtension(req *http.Request, res *Response) error {
 		}
 	}
 
-	res.StatusCode = http.StatusNotFound
+	ctx.StatusCode = http.StatusNotFound
 	return fmt.Errorf("invalid extension %s", extension)
 }
 
-func (s *Server) getMarkdown(req *http.Request, res *Response) error {
+func (s *Server) getMarkdown(ctx *middleware.Ctx) error {
+	req := ctx.Request()
 	output, err := s.Storage.Read(req.RequestURI)
 
 	if err != nil {
 		switch err {
 		case storage.ErrNotFound:
-			res.StatusCode = http.StatusNotFound
+			ctx.StatusCode = http.StatusNotFound
 			return fmt.Errorf("object not found: %v", err)
 		case storage.ErrForbidden:
-			res.StatusCode = http.StatusForbidden
+			ctx.StatusCode = http.StatusForbidden
 			return fmt.Errorf("couldn't read from storage: %v", err)
 		default:
 			return err
 		}
 	}
 
-	res.Body = output
+	ctx.Body = output
 
-	if res.Context().Value(IsRaw{}) != nil {
+	if ctx.Context().Value(isRaw) != nil {
 		// raw markdown
-		res.Header().Set("Content-Type", "text/markdown")
-		res.Cancel()
+		ctx.Header().Set("Content-Type", "text/markdown")
+		ctx.Cancel()
 	}
 
 	return nil
 }
 
-func (s *Server) prettyHTML(req *http.Request, res *Response) error {
-	res.Header().Set("Content-Type", "text/html")
+func (s *Server) prettyHTML(ctx *middleware.Ctx) error {
+	req := ctx.Request()
+	ctx.Header().Set("Content-Type", "text/html")
 
 	var html bytes.Buffer
 
 	title := filepath.Base(req.RequestURI)
 	err := s.outputTmpl.Execute(&html, outputTemplateData{
 		Title: title,
-		Body:  template.HTML(string(res.Body)),
+		Body:  template.HTML(string(ctx.Body)),
 	})
 
 	if err != nil {
 		return fmt.Errorf("couldn't execute output template: %v", err)
 	}
 
-	res.Title = title
-	res.Body = html.Bytes()
+	ctx.WithValue(pageTitle, title)
+	ctx.Body = html.Bytes()
 	return nil
 }
 
-func (s *Server) fetchListing(req *http.Request, res *Response) error {
+func (s *Server) fetchListing(ctx *middleware.Ctx) error {
+	req := ctx.Request()
 	path := req.RequestURI
 
 	// get files
@@ -187,14 +253,14 @@ There are no files here
 		return fmt.Errorf("couldn't execute output template: %v", err)
 	}
 
-	res.Title = title
-	res.Body = md.Bytes()
+	ctx.WithValue(pageTitle, title)
+	ctx.Body = md.Bytes()
 	return nil
 }
 
-func (s *Server) renderMarkdown(req *http.Request, res *Response) error {
-	res.Body = blackfriday.Run(res.Body)
-	res.Header().Set("Content-Type", "text/markdown")
+func (s *Server) renderMarkdown(ctx *middleware.Ctx) error {
+	ctx.Body = blackfriday.Run(ctx.Body)
+	ctx.Header().Set("Content-Type", "text/markdown")
 
 	return nil
 }

@@ -30,6 +30,7 @@ const (
 	argValidateExtension = "validateextension"
 	argRootListingType   = "rootlisting"
 	argRootListingTitle  = "rootlistingtitle"
+	argVerbose           = "verbose"
 
 	argStorageDriver = "storage"
 
@@ -52,7 +53,7 @@ type Config struct {
 	Filesystem                        filesystem.Config
 	Spaces                            spaces.Config
 	SpacesCacheDuration               string
-	ValidateExtension                 bool
+	ValidateExtension, Verbose        bool
 	OutputTemplate                    string
 	RootListingType, RootListingTitle string
 }
@@ -89,6 +90,7 @@ func init() {
 	addStringFlag(&config.OutputTemplate, argOutputTemplate, "", "", "path to HTML output template")
 	addStringFlag(&config.RootListingType, argRootListingType, "", "title-case", "show a file listing at /. options: ("+rootListingTypes+")")
 	addStringFlag(&config.RootListingTitle, argRootListingTitle, "", "", "the title to use for the file listing")
+	addBoolFlag(&config.Verbose, argVerbose, "", false, "log all incoming requests")
 
 	// filesystem
 	addStringFlag(&config.Filesystem.Path, argFilesystemPath, "", "./files", "path to markdown files")
@@ -174,6 +176,7 @@ func runMdmw(cmd *cobra.Command, args []string) {
 		ValidateExtension: config.ValidateExtension,
 		RootListing:       rootListing,
 		RootListingTitle:  config.RootListingTitle,
+		Verbose:           config.Verbose,
 	}
 
 	tmpl := config.OutputTemplate
