@@ -12,8 +12,8 @@ import (
 	textTemplate "text/template"
 
 	"github.com/igorsobreira/titlecase"
-	"github.com/kamaln7/mdmw/mdmw/middleware"
 	"github.com/kamaln7/mdmw/mdmw/storage"
+	"github.com/kamaln7/mdmw/middleware"
 	blackfriday "gopkg.in/russross/blackfriday.v2"
 )
 
