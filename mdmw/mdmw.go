@@ -79,7 +79,7 @@ func (s *Server) Serve(w http.ResponseWriter, r *http.Request, mws ...middleware
 	postProcess := []middleware.Middleware{s.prettyErrors}
 
 	if s.Verbose {
-		postProcess = append(postProcess, middleware.Log)
+		postProcess = append(postProcess, middleware.Log(os.Stdout))
 	}
 
 	ctx = middleware.Chain(ctx, postProcess...)

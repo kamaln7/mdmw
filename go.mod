@@ -9,5 +9,6 @@ require (
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.6.2
+	github.com/stretchr/testify v1.2.2
 	gopkg.in/russross/blackfriday.v2 v2.0.0
 )

@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"reflect"
 	"runtime"
@@ -98,27 +99,30 @@ func Serve(w http.ResponseWriter, req *http.Request, mws ...Middleware) {
 
 // Apply applies the context to an http.ResponseWriter
 func (c *Ctx) Apply(w http.ResponseWriter) {
-	if c.StatusCode != 0 {
-		w.WriteHeader(c.StatusCode)
-	}
-
 	for header, values := range c.Header() {
 		for _, value := range values {
 			w.Header().Add(header, value)
 		}
 	}
+
+	if c.StatusCode != 0 {
+		w.WriteHeader(c.StatusCode)
+	}
+
 	w.Write(c.Body)
 }
 
 // Log logs the request chain for debugging purposes
-func Log(ctx *Ctx) error {
-	fmt.Printf("uri [%s], chain [%s], status [%d]\n",
-		ctx.Request().RequestURI,
-		ctx.Chain(),
-		ctx.StatusCode,
-	)
+func Log(w io.Writer) Middleware {
+	return func(ctx *Ctx) error {
+		fmt.Fprintf(w, "uri [%s], chain [%s], status [%d]\n",
+			ctx.Request().RequestURI,
+			ctx.Chain(),
+			ctx.StatusCode,
+		)
 
-	return nil
+		return nil
+	}
 }
 
 func getFunctionName(i interface{}) string {
